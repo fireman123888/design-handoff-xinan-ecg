@@ -1,0 +1,26 @@
+{
+  "name": "xinan-ecg",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Xin'an ECG — patient-facing uni-app for an OTC ECG device",
+  "scripts": {
+    "dev:app-android": "uni -p app-android",
+    "dev:h5": "uni",
+    "build:app": "uni build -p app",
+    "test": "node --test test/frame.test.js test/ecgPacket.test.js test/statusPayload.test.js"
+  },
+  "dependencies": {
+    "@dcloudio/uni-app": "vue3",
+    "@dcloudio/uni-app-plus": "vue3",
+    "@dcloudio/uni-components": "vue3",
+    "@dcloudio/uni-h5": "vue3",
+    "vue": "^3.4.0"
+  },
+  "devDependencies": {
+    "@dcloudio/uni-cli-shared": "vue3",
+    "@dcloudio/vite-plugin-uni": "vue3",
+    "sass": "^1.70.0",
+    "vite": "^5.0.0"
+  }
+}

@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover" />
+    <title>心安心电</title>
+    <script>
+      // Inject the __UNI_FEATURE_* globals that uni-h5.es.js references but that
+      // Vite's `define` plugin does not replace inside /node_modules/.../uni-h5.es.js
+      // when serving in dev mode. Without these, `if (__UNI_FEATURE_PAGES__) initRouter(app)`
+      // is treated as undefined→falsy, $router never gets attached, and uni.navigateTo
+      // throws "Cannot read properties of undefined (reading 'push')".
+      // For production builds, the build pipeline handles these correctly so this is
+      // a dev-only shim.
+      window.__UNI_FEATURE_PAGES__ = true;
+      window.__UNI_FEATURE_TABBAR__ = false;
+      window.__UNI_FEATURE_TABBAR_MIDBUTTON__ = false;
+      window.__UNI_FEATURE_TOPWINDOW__ = false;
+      window.__UNI_FEATURE_LEFTWINDOW__ = false;
+      window.__UNI_FEATURE_RIGHTWINDOW__ = false;
+      window.__UNI_FEATURE_RESPONSIVE__ = false;
+      window.__UNI_FEATURE_NAVIGATIONBAR__ = true;
+      window.__UNI_FEATURE_PULL_DOWN_REFRESH__ = false;
+      window.__UNI_FEATURE_NAVIGATIONBAR_BUTTONS__ = false;
+      window.__UNI_FEATURE_NAVIGATIONBAR_SEARCHINPUT__ = false;
+      window.__UNI_FEATURE_NAVIGATIONBAR_TRANSPARENT__ = false;
+      window.__UNI_FEATURE_PAGE_META__ = true;
+      window.__UNI_FEATURE_NVUE__ = false;
+      window.__UNI_FEATURE_ROUTER_MODE__ = 'hash';
+      window.__UNI_FEATURE_RPX__ = true;
+      window.__UNI_FEATURE_PROMISE__ = false;
+      window.__UNI_FEATURE_LONGPRESS__ = true;
+      window.__UNI_FEATURE_WX__ = false;
+      window.__UNI_FEATURE_WXS__ = true;
+      window.__UNI_FEATURE_UNI_CLOUD__ = false;
+      window.__UNI_FEATURE_I18N_EN__ = true;
+      window.__UNI_FEATURE_I18N_ES__ = true;
+      window.__UNI_FEATURE_I18N_FR__ = true;
+      window.__UNI_FEATURE_I18N_ZH_HANS__ = true;
+      window.__UNI_FEATURE_I18N_ZH_HANT__ = true;
+      window.__UNI_FEATURE_I18N_LOCALE__ = false;
+    </script>
+  </head>
+  <body>
+    <div id="app"></div>
+    <script type="module" src="/src/main.js"></script>
+  </body>
+</html>

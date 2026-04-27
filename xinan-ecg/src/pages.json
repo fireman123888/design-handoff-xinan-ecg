@@ -1,0 +1,58 @@
+{
+  "pages": [
+    {
+      "path": "pages/pairing/welcome",
+      "style": { "navigationStyle": "custom" }
+    },
+    {
+      "path": "pages/pairing/scanning",
+      "style": { "navigationStyle": "custom" }
+    },
+    {
+      "path": "pages/pairing/electrodes",
+      "style": { "navigationStyle": "custom" }
+    },
+    {
+      "path": "pages/home/home",
+      "style": { "navigationStyle": "custom" }
+    },
+    {
+      "path": "pages/history/history",
+      "style": {
+        "navigationBarTitleText": "历史记录",
+        "navigationBarBackgroundColor": "#F3F6F8",
+        "navigationBarTextStyle": "black"
+      }
+    },
+    {
+      "path": "pages/detail/detail",
+      "style": {
+        "navigationBarTitleText": "详细记录",
+        "navigationBarBackgroundColor": "#F3F6F8",
+        "navigationBarTextStyle": "black"
+      }
+    },
+    {
+      "path": "pages/family/family",
+      "style": {
+        "navigationBarTitleText": "家人",
+        "navigationBarBackgroundColor": "#F3F6F8",
+        "navigationBarTextStyle": "black"
+      }
+    },
+    {
+      "path": "pages/settings/settings",
+      "style": {
+        "navigationBarTitleText": "设置",
+        "navigationBarBackgroundColor": "#F3F6F8",
+        "navigationBarTextStyle": "black"
+      }
+    }
+  ],
+  "globalStyle": {
+    "navigationBarTextStyle": "black",
+    "navigationBarTitleText": "心安心电",
+    "navigationBarBackgroundColor": "#F3F6F8",
+    "backgroundColor": "#F3F6F8"
+  }
+}

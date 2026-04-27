@@ -1,0 +1,40 @@
+{
+  "name": "心安心电",
+  "appid": "",
+  "description": "Patient-facing ECG monitor",
+  "versionName": "0.1.0",
+  "versionCode": 1,
+  "transformPx": false,
+  "app-plus": {
+    "usingComponents": true,
+    "splashscreen": {
+      "alwaysShowBeforeRender": true,
+      "waiting": true,
+      "autoclose": true,
+      "delay": 0
+    },
+    "modules": {},
+    "distribute": {
+      "android": {
+        "permissions": [
+          "<uses-permission android:name=\"android.permission.BLUETOOTH\"/>",
+          "<uses-permission android:name=\"android.permission.BLUETOOTH_ADMIN\"/>",
+          "<uses-permission android:name=\"android.permission.BLUETOOTH_SCAN\"/>",
+          "<uses-permission android:name=\"android.permission.BLUETOOTH_CONNECT\"/>",
+          "<uses-permission android:name=\"android.permission.ACCESS_COARSE_LOCATION\"/>",
+          "<uses-permission android:name=\"android.permission.ACCESS_FINE_LOCATION\"/>"
+        ],
+        "minSdkVersion": 23,
+        "targetSdkVersion": 33,
+        "abiFilters": ["armeabi-v7a", "arm64-v8a"]
+      },
+      "ios": {
+        "deploymentTarget": "11.0"
+      }
+    }
+  },
+  "h5": {
+    "title": "心安心电"
+  },
+  "vueVersion": "3"
+}
