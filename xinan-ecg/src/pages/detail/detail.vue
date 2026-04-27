@@ -1,11 +1,33 @@
+<!-- ============================================================================
+   DETAIL  ——  单次会话详情:统计卡 + 24h 趋势 + 10s ECG 片段 + 异常提示
+  ----------------------------------------------------------------------------
+   通过 query ?id=xxx 进入。来源由 sessions store 用 getById 查找。
+   id 缺失或查不到时显示空态 ("未找到此条记录")。
+
+   模板区块:
+     [T1] 头部 (日期 + 时长)
+     [T2] 统计卡 (平均/最低/最高)
+     [T3] 24h 趋势图
+     [T4] 10s ECG 片段 (EcgPaperCanvas 子组件)
+     [T5] 异常提示
+     [T6] 底部按钮 (返回 / 分享)
+
+   脚本区块:
+     [S1] 依赖与 onMounted (从 query 读 id)
+     [S2] 头部展示 / 工具函数
+     [S3] 视觉:trendDotBottom (HR 60-110 → 0-100%)
+     [S4] 用户事件 onBack / onShare
+============================================================================ -->
+
 <template>
   <view class="screen" v-if="session">
+    <!-- ============= [T1] 头部 ============= -->
     <view class="header">
       <text class="header-date">{{ headerDate }}</text>
       <text class="header-duration">记录时长 {{ formatDuration(session.durationSec) }}</text>
     </view>
 
-    <!-- Stats card -->
+    <!-- ============= [T2] 统计卡 ============= -->
     <view class="card stats-card">
       <view class="stat-main">
         <text class="stat-label">平均心率</text>
@@ -27,7 +49,7 @@
       </view>
     </view>
 
-    <!-- 24h trend -->
+    <!-- ============= [T3] 24 小时趋势 ============= -->
     <text class="section-label">24 小时心率趋势</text>
     <view class="card trend-card">
       <view class="trend-axis">
@@ -58,11 +80,11 @@
       </view>
     </view>
 
-    <!-- 10s ECG strip on graph paper -->
+    <!-- ============= [T4] 10s ECG 片段 ============= -->
     <text class="section-label">10 秒 ECG 片段</text>
     <ecg-paper-canvas :samples="session.ecgStripSamples" :width="688" :height="420" />
 
-    <!-- Anomaly callout -->
+    <!-- ============= [T5] 异常提示 (仅 hasAnomaly) ============= -->
     <view v-if="session.hasAnomaly" class="anomaly">
       <text class="anomaly-glyph">!</text>
       <view class="anomaly-text">
@@ -71,6 +93,7 @@
       </view>
     </view>
 
+    <!-- ============= [T6] 底部按钮 ============= -->
     <view class="footer">
       <view class="footer-btn footer-btn-ghost" @click="onBack">
         <text class="footer-btn-ghost-text">返回</text>
@@ -81,12 +104,16 @@
     </view>
   </view>
 
+  <!-- 空态 -->
   <view v-else class="screen">
     <text class="empty-text">未找到此条记录。</text>
   </view>
 </template>
 
 <script setup>
+// ============================================================================
+// [S1] 依赖与 onMounted (从 query 读 id)
+// ============================================================================
 import { ref, computed, onMounted } from 'vue';
 import { getById, seedIfEmpty } from '@/stores/sessions.js';
 import EcgPaperCanvas from '@/components/EcgPaperCanvas.vue';
@@ -95,15 +122,19 @@ const session = ref(null);
 const idQuery = ref('');
 
 onMounted(() => {
-  // uni-app passes query into onLoad — but for <script setup> we read it from
-  // the page's instance options at mount time.
+  // <script setup> 没有 onLoad,从 page 实例的 options 里读 query
   const pages = getCurrentPages ? getCurrentPages() : [];
-  const top = pages[pages.length - 1];
-  const id = (top && top.options && top.options.id) ? decodeURIComponent(top.options.id) : '';
+  const top   = pages[pages.length - 1];
+  const id    = (top && top.options && top.options.id) ? decodeURIComponent(top.options.id) : '';
   idQuery.value = id;
   seedIfEmpty();
   if (id) session.value = getById(id);
 });
+
+
+// ============================================================================
+// [S2] 头部展示 / 工具
+// ============================================================================
 
 const headerDate = computed(() => {
   if (!session.value) return '';
@@ -120,13 +151,22 @@ function formatDuration(sec) {
   return `${m} 分 ${s} 秒`;
 }
 
+
+// ============================================================================
+// [S3] trendDotBottom  ——  把 HR 60..110 映射到 0..100% 的纵坐标
+// ============================================================================
+
 function trendDotBottom(hr) {
-  // Plot area shows HR 60..110; clamp + map to 0..100%.
   const clamped = Math.max(60, Math.min(110, hr));
   return ((clamped - 60) / 50) * 100 + '%';
 }
 
-function onBack() { uni.navigateBack({ delta: 1 }); }
+
+// ============================================================================
+// [S4] 用户事件
+// ============================================================================
+
+function onBack()  { uni.navigateBack({ delta: 1 }); }
 function onShare() { uni.navigateTo({ url: '/pages/family/family' }); }
 </script>
 
@@ -180,7 +220,7 @@ function onShare() { uni.navigateTo({ url: '/pages/family/family' }); }
 }
 .trend-band {
   position: absolute; left: 0; right: 0;
-  /* Normal range 60–90 inside HR plot 60..110 → bottom 0%..60% */
+  /* 正常区间 60–90 落在 HR 图 60..110 区间 → 底部 0%..60% */
   bottom: 0; height: 60%;
   background-color: $accent-soft;
   border-radius: 16rpx;

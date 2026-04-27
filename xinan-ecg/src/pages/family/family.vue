@@ -1,5 +1,25 @@
+<!-- ============================================================================
+   FAMILY  ——  家人列表 + 紧急联系 + 分享今日报告
+  ----------------------------------------------------------------------------
+   家人数据来自 prefs.family;紧急联系人取第一个 emergency:true 的成员;
+   分享按钮目前是演示动作(showToast),真实建包应当 POST 到后端。
+
+   模板区块:
+     [T1] 紧急联系人卡
+     [T2] 家人列表
+     [T3] 分享按钮
+     [T4] 底部说明文字
+
+   脚本区块:
+     [S1] 依赖
+     [S2] emergencyContact / shared
+     [S3] maskPhone   —— 受 flags.maskFamilyPhoneNumbers 控制
+     [S4] onCall / onShare
+============================================================================ -->
+
 <template>
   <view class="screen">
+    <!-- ============= [T1] 紧急联系人 ============= -->
     <text class="section-label">紧急联系人</text>
     <view class="card emergency-card">
       <view class="avatar">
@@ -19,6 +39,7 @@
       </view>
     </view>
 
+    <!-- ============= [T2] 家人列表 ============= -->
     <text class="section-label">家人列表</text>
     <view class="card">
       <view
@@ -40,6 +61,7 @@
       </view>
     </view>
 
+    <!-- ============= [T3] 分享按钮 ============= -->
     <view
       :class="['share-btn', shared ? 'share-btn-done' : '']"
       @click="onShare"
@@ -50,6 +72,7 @@
       </text>
     </view>
 
+    <!-- ============= [T4] 底部说明 ============= -->
     <view class="footer">
       <text class="footer-text">
         当心率出现异常或电极脱落超过 30 秒，已开启提醒的家人会收到推送。
@@ -59,9 +82,18 @@
 </template>
 
 <script setup>
+// ============================================================================
+// [S1] 依赖
+// ============================================================================
 import { computed, ref } from 'vue';
-import { prefs } from '@/stores/prefs.js';
+import { prefs }    from '@/stores/prefs.js';
 import { sessions } from '@/stores/sessions.js';
+import { flags }    from '@/config/featureFlags.js';
+
+
+// ============================================================================
+// [S2] emergencyContact / shared
+// ============================================================================
 
 const emergencyContact = computed(() =>
   (prefs.family || []).find(f => f.emergency) || (prefs.family || [])[0]
@@ -69,10 +101,21 @@ const emergencyContact = computed(() =>
 
 const shared = ref(false);
 
+
+// ============================================================================
+// [S3] maskPhone  ——  138 **** 8001 形式;受 flags 控制
+// ============================================================================
+
 function maskPhone(p) {
+  if (!flags.maskFamilyPhoneNumbers) return p || '';
   if (!p || p.length < 7) return p || '';
   return p.slice(0, 3) + ' **** ' + p.slice(-4);
 }
+
+
+// ============================================================================
+// [S4] onCall / onShare
+// ============================================================================
 
 function onCall(contact) {
   if (typeof uni !== 'undefined' && uni.makePhoneCall) {
@@ -81,8 +124,7 @@ function onCall(contact) {
 }
 
 function onShare() {
-  // Build a one-line summary of today's session and stash it (real builds would
-  // post to a backend; the toggle is enough to demo the affordance).
+  // 演示版只 toast 一行 summary,真实建包应当 POST 到后端
   const today = sessions.value[0];
   const summary = today
     ? `今日记录 ${today.durationSec}s · 平均心率 ${today.avgHr}`

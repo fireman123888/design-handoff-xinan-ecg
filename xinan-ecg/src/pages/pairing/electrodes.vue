@@ -1,13 +1,34 @@
+<!-- ============================================================================
+   ELECTRODES  ——  配对流程第 3 步:贴电极指引
+  ----------------------------------------------------------------------------
+   行为:
+     纯静态指引页 + 一个按钮 "已贴好,开始记录" → reLaunch 到 home。
+
+   注意:
+     人体轮廓用 view 原语拼出来,不依赖 SVG/图片资源,以免 App-PLUS / 小程序
+     端要额外打包静态资产。
+
+   模板区块:
+     [T1] 标题区
+     [T2] 人体轮廓 (头/躯干/双臂 + 左右两个电极小圆)
+     [T3] 提示卡
+     [T4] 主按钮
+
+   脚本区块:
+     [S1] onDone  ——  完成进入 home
+============================================================================ -->
+
 <template>
   <view class="screen">
+    <!-- [T1] -->
     <view class="header">
       <text class="title">贴好两个电极</text>
       <text class="subtitle">按图示位置将贴片按压在皮肤上</text>
     </view>
 
+    <!-- [T2] 人体轮廓 -->
     <view class="silhouette">
       <view class="body">
-        <!-- Body silhouette built from primitives so we don't need a bundled SVG. -->
         <view class="head" />
         <view class="torso" />
         <view class="arm arm-l" />
@@ -21,11 +42,13 @@
       </view>
     </view>
 
+    <!-- [T3] 提示卡 -->
     <view class="tip">
       <text class="tip-emoji">💡</text>
       <text class="tip-text">两个贴片都贴好后，按下方按钮开始记录。如果出现告警，按提示重新贴一次即可。</text>
     </view>
 
+    <!-- [T4] 主按钮 -->
     <view class="primary-btn" @click="onDone" hover-class="btn-hover">
       <text class="primary-btn-text">已贴好，开始记录</text>
     </view>
@@ -33,6 +56,9 @@
 </template>
 
 <script setup>
+// ============================================================================
+// [S1] onDone  ——  reLaunch 到 home (清空导航栈,避免返回回到 pairing)
+// ============================================================================
 function onDone() {
   uni.reLaunch({ url: '/pages/home/home' });
 }

@@ -1,6 +1,30 @@
+<!-- ============================================================================
+   SETTINGS  ——  显示设置 / 提醒开关 / 设备命令
+  ----------------------------------------------------------------------------
+   3 个分组:
+     [显示]  字号大小 (1.0 / 1.15 / 1.3)
+     [提醒]  心率告警 / 电极脱落 / 低电量 三个 toggle
+     [设备]  连接状态 + 三个命令按钮 (同步时间 / 重新绑定 / 关机)
+
+   命令按钮直接调用 ble/command.js 的构造器,然后通过 ecg store 拿到的 source
+   去 writeCommand 下发(真设备 / 模拟源都行)。
+
+   模板区块:
+     [T1] 显示分组
+     [T2] 提醒分组
+     [T3] 设备分组 (连接状态行 + 三个命令行)
+     [T4] 底部"家人与紧急联系"链接
+
+   脚本区块:
+     [S1] 依赖
+     [S2] 计算属性 connectionLabel / deviceIdShort
+     [S3] toggle 三连
+     [S4] send 包装  + 三个命令按钮处理
+============================================================================ -->
+
 <template>
   <view class="screen">
-    <!-- 显示 -->
+    <!-- ============= [T1] 显示 ============= -->
     <text class="section-label">显示</text>
     <view class="card">
       <view class="row row-stack">
@@ -20,7 +44,7 @@
       </view>
     </view>
 
-    <!-- 提醒 -->
+    <!-- ============= [T2] 提醒 ============= -->
     <text class="section-label">提醒</text>
     <view class="card">
       <view class="row" @click="toggleHr">
@@ -54,7 +78,7 @@
       </view>
     </view>
 
-    <!-- 设备 -->
+    <!-- ============= [T3] 设备 ============= -->
     <text class="section-label">设备</text>
     <view class="card">
       <view class="row">
@@ -90,6 +114,7 @@
       </view>
     </view>
 
+    <!-- ============= [T4] 底部链接 ============= -->
     <view class="footer">
       <view class="link" @click="onFamily">
         <text class="link-text">家人与紧急联系</text>
@@ -99,6 +124,9 @@
 </template>
 
 <script setup>
+// ============================================================================
+// [S1] 依赖
+// ============================================================================
 import { computed } from 'vue';
 import {
   prefs, setTextScale,
@@ -108,10 +136,15 @@ import { state, getSource } from '@/stores/ecg.js';
 import { syncRtc, bindUser, powerOff } from '@/ble/command.js';
 
 const textSizeOptions = [
-  { label: '标准', value: 1.0 },
+  { label: '标准', value: 1.0  },
   { label: '加大', value: 1.15 },
-  { label: '特大', value: 1.3 },
+  { label: '特大', value: 1.3  },
 ];
+
+
+// ============================================================================
+// [S2] 计算属性
+// ============================================================================
 
 const connectionLabel = computed(() => ({
   disconnected: '未连接',
@@ -126,9 +159,19 @@ const deviceIdShort = computed(() => {
   return id.length > 14 ? id.slice(-12) : id;
 });
 
-function toggleHr()        { setHrAlarm(!prefs.hrAlarmEnabled); }
+
+// ============================================================================
+// [S3] 三个开关
+// ============================================================================
+
+function toggleHr()        { setHrAlarm(!prefs.hrAlarmEnabled);             }
 function toggleElectrode() { setElectrodeAlarm(!prefs.electrodeAlarmEnabled); }
-function toggleBattery()   { setBatteryAlarm(!prefs.batteryAlarmEnabled); }
+function toggleBattery()   { setBatteryAlarm(!prefs.batteryAlarmEnabled);   }
+
+
+// ============================================================================
+// [S4] 命令发送 + 按钮处理
+// ============================================================================
 
 async function send(frameBytes, label) {
   const src = getSource();
@@ -144,13 +187,13 @@ async function send(frameBytes, label) {
   }
 }
 
-function onSyncRtc()  { send(syncRtc(Date.now()),       '同步时间'); }
-function onBindUser() { send(bindUser(20260427),        '绑定账户'); }
+function onSyncRtc()  { send(syncRtc(Date.now()), '同步时间'); }
+function onBindUser() { send(bindUser(20260427),  '绑定账户'); }
 function onShutdown() {
   uni.showModal({
-    title: '关机',
-    content: '确定关闭设备？关机后将断开连接。',
-    confirmText: '确定关机',
+    title:        '关机',
+    content:      '确定关闭设备？关机后将断开连接。',
+    confirmText:  '确定关机',
     confirmColor: '#B1242B',
     success: (r) => { if (r.confirm) send(powerOff(), '关机'); },
   });

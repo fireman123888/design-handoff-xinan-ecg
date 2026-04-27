@@ -1,10 +1,48 @@
+<!-- ============================================================================
+   HOME  ——  主屏:问候 + 设备状态 + 当前心率 + 实时波形 + 录制按钮 + 数据源
+  ----------------------------------------------------------------------------
+   职责:
+     1. onMounted 时:接入 FixtureSource (受 flags.autoStartFixtureOnHome 控制),
+        seedIfEmpty 注入演示数据,然后即可滚动展示。
+     2. 实时心率/电池/RSSI 数字直接读 ecg store 的 reactive state。
+     3. 提供 file picker + 采样率输入两行,允许用户用自己的 ECG 数据替换内置文件
+        (这两行可由 flags.showFilePickerRow / showSampleRateRow 整体关掉)。
+
+   动画一律用 flags 控制:心形脉动 / 录制红点闪烁 / 雷达环 / 警告环。
+   关掉所有动画不会影响功能,只是 UI 静止。
+
+   模板区块:
+     [T1] 问候头
+     [T2] 顶部 banner (设备状态 / 录制时长)
+     [T3] 心率大卡 (数字 + 心形 + 实时波形)
+     [T4] 电池 / 信号 两个 tile
+     [T5] 录制开始/暂停按钮
+     [T6] 历史 / 设置 入口
+     [T7] 数据源行 (选择文件 / 恢复)
+     [T8] 采样率行
+     [T9] AlarmOverlay
+
+   脚本区块:
+     [S1] 依赖与 ref
+     [S2] onMounted: 接入 fixture + seed
+     [S3] 计算属性 (问候、状态文本、心率/电池/信号 hint)
+     [S4] 录制按钮事件
+     [S5] 跳转 (history / settings)
+     [S6] 文件选择: chooseFile → 文本读取 → DOM 兜底 → 平台路径读取
+     [S7] handleText:嗅探采样率 + 解析数字 → src.setSamples
+     [S8] 嗅探 / 解析 工具
+     [S9] 重置数据源
+============================================================================ -->
+
 <template>
   <view class="screen">
+    <!-- ============= [T1] 问候头 ============= -->
     <view class="header">
       <text class="greeting">{{ greeting }}，王奶奶</text>
       <text class="subgreeting">今天的心跳很稳定</text>
     </view>
 
+    <!-- ============= [T2] 顶部 banner ============= -->
     <view :class="['banner', isElectrodeOff ? 'banner-warn' : 'banner-ok']">
       <view class="banner-text">
         <text class="banner-label">设备状态</text>
@@ -16,6 +54,7 @@
       </view>
     </view>
 
+    <!-- ============= [T3] 心率大卡 ============= -->
     <view class="hr-card">
       <view class="hr-row">
         <view class="hr-numbers">
@@ -27,8 +66,8 @@
           </view>
         </view>
         <view
-          class="heart-pulse"
-          :style="{ animationDuration: heartPulseDuration + 's' }"
+          :class="['heart-pulse', flags.enableHeartPulseAnimation ? 'heart-pulse-anim' : '']"
+          :style="flags.enableHeartPulseAnimation ? { animationDuration: heartPulseDuration + 's' } : {}"
         >
           <text class="heart-glyph">♥</text>
         </view>
@@ -36,6 +75,7 @@
       <ecg-waveform class="hr-canvas" :width="608" :height="168" />
     </view>
 
+    <!-- ============= [T4] 电池 / 信号 tile ============= -->
     <view class="tile-row">
       <view class="tile">
         <text class="tile-icon">🔋</text>
@@ -51,17 +91,22 @@
       </view>
     </view>
 
+    <!-- ============= [T5] 录制按钮 ============= -->
     <view
       :class="['record-btn', state.recording ? 'record-btn-on' : 'record-btn-off']"
       @click="toggleRecording"
       hover-class="record-btn-hover"
     >
-      <view v-if="state.recording" class="rec-dot" />
+      <view
+        v-if="state.recording"
+        :class="['rec-dot', flags.enableRecDotAnimation ? 'rec-dot-anim' : '']"
+      />
       <text :class="['record-label', state.recording ? 'record-label-on' : 'record-label-off']">
         {{ state.recording ? '正在记录 · 点击暂停' : '开始记录' }}
       </text>
     </view>
 
+    <!-- ============= [T6] 历史 / 设置 入口 ============= -->
     <view class="shortcut-row">
       <view class="shortcut" @click="onHistory" hover-class="shortcut-hover">
         <text class="shortcut-label">历史记录</text>
@@ -73,7 +118,8 @@
       </view>
     </view>
 
-    <view class="source-row">
+    <!-- ============= [T7] 数据源行 (可整体关闭) ============= -->
+    <view v-if="flags.showFilePickerRow" class="source-row">
       <view class="source-text">
         <text class="source-label">模拟数据</text>
         <text class="source-name">{{ sourceName }}</text>
@@ -93,7 +139,8 @@
       </view>
     </view>
 
-    <view class="sr-row">
+    <!-- ============= [T8] 采样率行 (可整体关闭) ============= -->
+    <view v-if="flags.showSampleRateRow" class="sr-row">
       <text class="sr-label">采样率</text>
       <input
         class="sr-input"
@@ -106,21 +153,26 @@
       <text class="sr-hint">{{ srHint }}</text>
     </view>
 
+    <!-- ============= [T9] AlarmOverlay ============= -->
     <alarm-overlay />
   </view>
 </template>
 
 <script setup>
+// ============================================================================
+// [S1] 依赖与 ref
+// ============================================================================
 import { computed, onMounted, ref } from 'vue';
 import { state, startWithFixture, startRecording, stopRecording, getSource } from '@/stores/ecg.js';
 import { seedIfEmpty } from '@/stores/sessions.js';
-import EcgWaveform from '@/components/EcgWaveform.vue';
-import AlarmOverlay from '@/components/AlarmOverlay.vue';
+import EcgWaveform   from '@/components/EcgWaveform.vue';
+import AlarmOverlay  from '@/components/AlarmOverlay.vue';
+import { flags }     from '@/config/featureFlags.js';
 
 const customLoaded = ref(false);
-const customName = ref('');
-const sampleRate = ref(545);
-const srSniffed = ref(false);
+const customName   = ref('');
+const sampleRate   = ref(545);
+const srSniffed    = ref(false);
 
 const sourceName = computed(() => {
   if (customLoaded.value) return customName.value;
@@ -128,18 +180,20 @@ const sourceName = computed(() => {
 });
 const srHint = computed(() => srSniffed.value ? '从文件嗅探到' : '默认值，可手动修改');
 
-function onSrInput(e) {
-  const v = Number(e.detail ? e.detail.value : e.target.value);
-  if (Number.isFinite(v) && v > 0) {
-    sampleRate.value = v;
-    srSniffed.value = false;
-  }
-}
+
+// ============================================================================
+// [S2] onMounted  ——  自动接入 FixtureSource + seed 演示数据
+// ============================================================================
 
 onMounted(() => {
-  startWithFixture();
+  if (flags.autoStartFixtureOnHome) startWithFixture();
   seedIfEmpty();
 });
+
+
+// ============================================================================
+// [S3] 计算属性
+// ============================================================================
 
 const greeting = computed(() => {
   const h = new Date().getHours();
@@ -159,6 +213,7 @@ const recordingLabel = computed(() => {
   return `已记录 ${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
 });
 
+// 心形脉动周期 = 60/HR 秒,与心率同步
 const heartPulseDuration = computed(() => state.hr > 0 ? (60 / state.hr).toFixed(2) : '1.00');
 
 const batteryHint = computed(() => {
@@ -175,18 +230,31 @@ const rssiLabel = computed(() => {
   return '信号较弱';
 });
 
+
+// ============================================================================
+// [S4] 录制按钮事件
+// ============================================================================
+
 function toggleRecording() {
   if (state.recording) stopRecording();
-  else startRecording();
+  else                 startRecording();
 }
+
+
+// ============================================================================
+// [S5] 跳转
+// ============================================================================
 
 function onHistory()  { uni.navigateTo({ url: '/pages/history/history' }); }
 function onSettings() { uni.navigateTo({ url: '/pages/settings/settings' }); }
 
-// Lets the user drop in their own ECG sample JSON/CSV/TXT. Tries the canonical
-// uni.chooseFile API first (so App-PLUS and WeChat MP work without DOM); falls
-// back to a raw <input type="file"> on H5 if chooseFile is missing or fails.
+
+// ============================================================================
+// [S6] 文件选择  ——  uni.chooseFile 主路径,DOM <input> 兜底
+// ============================================================================
+
 function onPickFile() {
+  // 主路径:uni.chooseFile (App-PLUS / WeChat MP / H5 都可能命中)
   if (typeof uni !== 'undefined' && typeof uni.chooseFile === 'function') {
     uni.chooseFile({
       count: 1,
@@ -197,8 +265,8 @@ function onPickFile() {
           uni.showToast({ title: '未选择文件', icon: 'none' });
           return;
         }
-        // H5: tempFiles[i] is a real File/Blob with .text(). App-PLUS / WeChat MP:
-        // it's `{ path, name, size }` and reading needs the platform's file API.
+        // H5: tempFiles[i] 是真 File/Blob,有 .text(); App-PLUS / WeChat MP:
+        // 是 { path, name, size },需要平台 IO 读
         if (typeof tf.text === 'function') {
           tf.text()
             .then((text) => handleText(text, tf.name || 'data'))
@@ -212,8 +280,7 @@ function onPickFile() {
       fail: (e) => {
         const msg = (e && e.errMsg) || '';
         if (msg.indexOf('cancel') !== -1) return;
-        // chooseFile reported failure (often "not supported on this platform" in dev).
-        // Fall through to the DOM picker — it's our H5 fallback.
+        // chooseFile 报失败(常见于 H5 dev 环境) → DOM 兜底
         domFallback();
       },
     });
@@ -222,13 +289,14 @@ function onPickFile() {
   domFallback();
 }
 
+// H5 兜底:动态创建 <input type="file">
 function domFallback() {
   if (typeof document === 'undefined') {
     uni.showToast({ title: '当前平台暂不支持选择文件', icon: 'none' });
     return;
   }
   const input = document.createElement('input');
-  input.type = 'file';
+  input.type   = 'file';
   input.accept = '.json,.txt,.csv,application/json,text/plain,text/csv';
   input.onchange = (e) => {
     const file = e.target.files && e.target.files[0];
@@ -241,9 +309,7 @@ function domFallback() {
   input.click();
 }
 
-// App-PLUS / WeChat MP path. Resolves a platform path into a File and reads as
-// text. plus.io is the App-PLUS HTML5+ filesystem API; on WeChat MP we'd use
-// wx.getFileSystemManager().readFile — guarded so dev under H5 doesn't trip it.
+// App-PLUS / WeChat MP 平台 IO 读
 function readPlatformPath(path, name) {
   if (typeof plus !== 'undefined' && plus.io && plus.io.resolveLocalFileSystemURL) {
     plus.io.resolveLocalFileSystemURL(path, (entry) => {
@@ -268,14 +334,19 @@ function readPlatformPath(path, name) {
   uni.showToast({ title: '当前平台读取未实现', icon: 'none' });
 }
 
+
+// ============================================================================
+// [S7] handleText  ——  嗅采样率 → 解数字 → src.setSamples
+// ============================================================================
+
 function handleText(text, fileName) {
-  // Try to sniff the source sample rate before parsing the data — many ECG
-  // exports prefix a header like "Fs=250" or "sample rate: 500". If found we
-  // override the UI value; otherwise keep whatever the user set.
-  const sniffed = sniffSampleRate(text);
-  if (sniffed) {
-    sampleRate.value = sniffed;
-    srSniffed.value = true;
+  // 先看是否能从文件头嗅探到采样率,嗅到就覆盖 UI 上的值
+  if (flags.enableSampleRateSniffer) {
+    const sniffed = sniffSampleRate(text);
+    if (sniffed) {
+      sampleRate.value = sniffed;
+      srSniffed.value  = true;
+    }
   }
 
   const numeric = parseSamples(text);
@@ -290,14 +361,17 @@ function handleText(text, fileName) {
   }
   src.setSamples(numeric, sampleRate.value);
   customLoaded.value = true;
-  customName.value = `${fileName} · ${numeric.length} 样本 @ ${sampleRate.value} Hz`;
+  customName.value   = `${fileName} · ${numeric.length} 样本 @ ${sampleRate.value} Hz`;
   uni.showToast({ title: '已切换到上传数据', icon: 'success' });
 }
 
-// Header sniffer — looks at the first ~512 chars for common sample-rate keys
-// (Fs, fs, SR, sr, sample rate, samplerate, sampling rate). Returns null if
-// nothing recognizable is found. Intentionally narrow so we don't false-positive
-// on integers that happen to appear in actual sample data.
+
+// ============================================================================
+// [S8] 嗅探 / 解析  工具
+// ============================================================================
+
+// 在前 ~512 字符里找 Fs= / SR= / sample rate= 这些常见关键字。
+// 故意只看头部、只接受 50–50000 区间的整数,避免把数据里的整数误判为 SR。
 function sniffSampleRate(text) {
   if (typeof text !== 'string') return null;
   const head = text.slice(0, 512);
@@ -307,9 +381,8 @@ function sniffSampleRate(text) {
   return (v >= 50 && v <= 50000) ? v : null;
 }
 
-// Best-effort parser. Tries JSON first (array or { samples|ecg|data: [...] });
-// falls back to scanning the text for signed decimals — handles plain CSV
-// (`-0.151,-0.161,...`), one-per-line, tab-separated, mixed whitespace, etc.
+// 解析数字流:先尝 JSON;失败回退到正则扫"带号小数"。
+// 这个回退够通用 —— 纯 CSV、一行一个、Tab 分隔、混合空白都吃得下。
 function parseSamples(text) {
   if (typeof text !== 'string' || text.length === 0) return null;
   try {
@@ -319,10 +392,23 @@ function parseSamples(text) {
       const out = arr.map(Number).filter(Number.isFinite);
       if (out.length > 0) return out;
     }
-  } catch (_) { /* not JSON, fall through */ }
+  } catch (_) { /* 不是 JSON,继续走正则 */ }
   const tokens = text.match(/-?\d+(?:\.\d+)?(?:[eE][+-]?\d+)?/g);
   if (!tokens) return null;
   return tokens.map(Number).filter(Number.isFinite);
+}
+
+
+// ============================================================================
+// [S9] onSrInput / onResetSource
+// ============================================================================
+
+function onSrInput(e) {
+  const v = Number(e.detail ? e.detail.value : e.target.value);
+  if (Number.isFinite(v) && v > 0) {
+    sampleRate.value = v;
+    srSniffed.value  = false;
+  }
 }
 
 function onResetSource() {
@@ -330,9 +416,9 @@ function onResetSource() {
   if (src && src.resetSamples) {
     src.resetSamples();
     customLoaded.value = false;
-    customName.value = '';
-    sampleRate.value = 545;
-    srSniffed.value = false;
+    customName.value   = '';
+    sampleRate.value   = 545;
+    srSniffed.value    = false;
     uni.showToast({ title: '已恢复内置数据', icon: 'success' });
   }
 }
@@ -390,6 +476,8 @@ function onResetSource() {
   width: 120rpx; height: 120rpx; border-radius: 60rpx;
   background-color: $accent-soft;
   display: flex; align-items: center; justify-content: center;
+}
+.heart-pulse-anim {
   animation: heart-pulse 1s ease-in-out infinite;
 }
 .heart-glyph { color: $accent; font-size: 64rpx; }
@@ -432,6 +520,8 @@ function onResetSource() {
 .rec-dot {
   width: 22rpx; height: 22rpx; border-radius: 11rpx;
   background-color: $danger; margin-right: 16rpx;
+}
+.rec-dot-anim {
   animation: rec-pulse 1.2s ease-in-out infinite;
 }
 @keyframes rec-pulse {

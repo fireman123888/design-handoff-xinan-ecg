@@ -1,13 +1,33 @@
-// Fixed-size float ring buffer for the live waveform.
-// Holds ~6s of samples at 250 Hz = 1500 floats; cheap to snapshot every frame.
+/* ============================================================================
+ *  RING BUFFER  ——  固定容量的浮点环形缓冲,用于实时波形快照
+ * ----------------------------------------------------------------------------
+ *  典型用法:
+ *    250 Hz × 6s 窗 = 1500 个样本,每帧画 canvas 时取一次 snapshot。
+ *
+ *  本文件区块:
+ *    [1] 类骨架与构造
+ *    [2] push / pushAll  —— 写入
+ *    [3] snapshot         —— 取最近 N 个样本(老 → 新),供 canvas 绘制
+ * ========================================================================== */
+
+
+// ============================================================================
+// [区块 1] 类骨架与构造
+// ============================================================================
 
 export class RingBuffer {
   constructor(size) {
-    this.size = size;
-    this.buf = new Float32Array(size);
-    this.write = 0; // monotonic, never wraps within JS number precision in practice
+    this.size  = size;
+    this.buf   = new Float32Array(size);
+    // write 单调递增,实际工程下永远不会越过 JS Number 的安全范围,
+    // 所以不需要回绕 —— 取模在读时做。
+    this.write = 0;
   }
 
+
+  // ==========================================================================
+  // [区块 2] 写入  ——  push 单个样本 / pushAll 批量
+  // ==========================================================================
   push(v) {
     this.buf[this.write % this.size] = v;
     this.write++;
@@ -17,11 +37,16 @@ export class RingBuffer {
     for (let i = 0; i < arr.length; i++) this.push(arr[i]);
   }
 
-  // Returns the last `count` samples, oldest → newest, into a fresh Float32Array.
-  // If fewer than `count` have ever been written, the leading slots are zero.
+
+  // ==========================================================================
+  // [区块 3] snapshot(count)  ——  返回最近 count 个样本,老 → 新
+  // ----------------------------------------------------------------------------
+  // 写入不到 count 时,前面的空位用 0 填充(Float32Array 默认值)。
+  // ((start + i) % size + size) % size  —— 对负数下标做正向取模。
+  // ==========================================================================
   snapshot(count) {
-    const c = Math.min(count, this.size);
-    const out = new Float32Array(c);
+    const c     = Math.min(count, this.size);
+    const out   = new Float32Array(c);
     const start = this.write - c;
     for (let i = 0; i < c; i++) {
       const idx = ((start + i) % this.size + this.size) % this.size;

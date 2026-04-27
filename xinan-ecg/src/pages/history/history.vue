@@ -1,6 +1,23 @@
+<!-- ============================================================================
+   HISTORY  ——  本周平均心率 + 7 日柱状图 + 每日记录列表
+  ----------------------------------------------------------------------------
+   数据来源:  stores/sessions.js (weekAvgHr, weekBars, sessions)
+   首次启动如果列表空,会被 seedIfEmpty() 注入 7 天演示数据。
+
+   模板区块:
+     [T1] 本周汇总卡 (大数字 + 7 根柱)
+     [T2] 每日记录列表
+     [T3] 空态文案
+
+   脚本区块:
+     [S1] 依赖与计算属性
+     [S2] 视觉工具:barHeight / dayPill / dayTitle / formatDuration
+     [S3] onOpen 跳转 detail
+============================================================================ -->
+
 <template>
   <view class="screen">
-    <!-- Week summary card -->
+    <!-- ============= [T1] 本周汇总卡 ============= -->
     <view class="week-card">
       <view class="week-header">
         <text class="week-label">本周平均心率</text>
@@ -27,7 +44,7 @@
       </view>
     </view>
 
-    <!-- Day list -->
+    <!-- ============= [T2] 每日记录列表 ============= -->
     <text class="section-label">每日记录</text>
     <view
       v-for="s in sessions"
@@ -51,6 +68,7 @@
       <text class="day-arrow">›</text>
     </view>
 
+    <!-- ============= [T3] 空态 ============= -->
     <view v-if="sessions.length === 0" class="empty">
       <text class="empty-text">还没有记录。完成第一次记录后，这里会出现历史。</text>
     </view>
@@ -58,11 +76,15 @@
 </template>
 
 <script setup>
+// ============================================================================
+// [S1] 依赖与计算属性
+// ============================================================================
 import { onMounted, computed } from 'vue';
 import { sessions, seedIfEmpty, weekAvgHr, weekBars } from '@/stores/sessions.js';
 
 onMounted(() => { seedIfEmpty(); });
 
+// 周一为 0,与 weekBars 返回顺序对齐
 const dayLabels = ['一', '二', '三', '四', '五', '六', '日'];
 
 const weekAvg = computed(() => weekAvgHr());
@@ -73,23 +95,31 @@ const todayIdx = computed(() => {
   return d === 0 ? 6 : d - 1;
 });
 
+
+// ============================================================================
+// [S2] 视觉工具
+// ============================================================================
+
+// HR 50–110 → 柱高 16–120rpx,无数据给最小 8rpx 防完全消失
 function barHeight(hr) {
   if (!hr) return '8rpx';
-  // Map HR 50–110 → 16–120rpx
   const clamped = Math.max(50, Math.min(110, hr));
-  const scaled = ((clamped - 50) / 60) * 104 + 16;
+  const scaled  = ((clamped - 50) / 60) * 104 + 16;
   return scaled + 'rpx';
 }
 
+// "5 月" / "12" 这种 day pill
 function dayPill(ts) {
   const d = new Date(ts);
   return { day: String(d.getDate()), month: (d.getMonth() + 1) + '月' };
 }
 
+// "今天" / "昨天" / "5月12日"
 function dayTitle(ts) {
-  const d = new Date(ts);
+  const d     = new Date(ts);
   const today = new Date(); today.setHours(0, 0, 0, 0);
-  const sameDay = (a, b) => a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
+  const sameDay = (a, b) =>
+    a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
   if (sameDay(d, today)) return '今天';
   const yesterday = new Date(today.getTime() - 86400000);
   if (sameDay(d, yesterday)) return '昨天';
@@ -102,6 +132,11 @@ function formatDuration(sec) {
   if (m === 0) return `${s} 秒`;
   return `${m} 分 ${s} 秒`;
 }
+
+
+// ============================================================================
+// [S3] onOpen  ——  跳到 detail 页(id 经过 encodeURIComponent)
+// ============================================================================
 
 function onOpen(s) {
   uni.navigateTo({ url: `/pages/detail/detail?id=${encodeURIComponent(s.id)}` });

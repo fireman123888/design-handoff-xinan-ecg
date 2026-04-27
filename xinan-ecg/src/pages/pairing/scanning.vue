@@ -1,19 +1,43 @@
+<!-- ============================================================================
+   SCANNING  ——  配对流程第 2 步:雷达扩散动画 + 模拟搜索到一台设备
+  ----------------------------------------------------------------------------
+   说明:
+     真实建包应当驱动一个 BleConnector 并展示真扫描结果。Demo 阶段按设计稿
+     固定 ~1.8s 后显示"已找到 1 台设备",给雷达动画时间被看清。
+
+   雷达环动画受 flags.enableRadarAnimation 控制,关掉后只剩静态蓝色圆盘。
+
+   模板区块:
+     [T1] 标题区
+     [T2] 雷达 (3 圈扩散环 + 中央蓝牙图标)
+     [T3] 设备结果卡 (found 时显示)
+     [T4] 主按钮 (未找到时禁用)
+
+   脚本区块:
+     [S1] 依赖与 ref
+     [S2] 1.8s 定时器
+     [S3] 连接事件
+============================================================================ -->
+
 <template>
   <view class="screen">
+    <!-- [T1] -->
     <view class="header">
       <text class="title">{{ found ? '已找到 1 台设备' : '正在搜索附近设备…' }}</text>
       <text class="subtitle">请确保设备已开机并在 1 米内</text>
     </view>
 
+    <!-- [T2] 雷达 -->
     <view class="radar">
-      <view class="ring ring-1" />
-      <view class="ring ring-2" />
-      <view class="ring ring-3" />
+      <view v-if="flags.enableRadarAnimation" class="ring ring-1" />
+      <view v-if="flags.enableRadarAnimation" class="ring ring-2" />
+      <view v-if="flags.enableRadarAnimation" class="ring ring-3" />
       <view class="bt-disc">
         <text class="bt-glyph">⌬</text>
       </view>
     </view>
 
+    <!-- [T3] 找到的设备(占位高度防止 layout 跳动) -->
     <view class="device-area">
       <view v-if="found" class="device-card">
         <view class="device-icon">
@@ -26,6 +50,7 @@
       </view>
     </view>
 
+    <!-- [T4] 主按钮 -->
     <view
       :class="['primary-btn', found ? '' : 'primary-btn-disabled']"
       @click="onConnect"
@@ -37,20 +62,30 @@
 </template>
 
 <script setup>
-// In a real build this screen drives a `BleConnector` and surfaces real scan
-// results. For the handoff we fake the timing the design specifies: ~1.8s
-// before "found", which gives the radar animation time to read.
-
+// ============================================================================
+// [S1] 依赖与 ref
+// ============================================================================
 import { ref, onMounted, onUnmounted } from 'vue';
 import { setKnownDevice } from '@/stores/prefs.js';
+import { flags } from '@/config/featureFlags.js';
 
 const found = ref(false);
 let timer = null;
+
+
+// ============================================================================
+// [S2] mount 后 1.8s 显示"已找到"
+// ============================================================================
 
 onMounted(() => {
   timer = setTimeout(() => { found.value = true; }, 1800);
 });
 onUnmounted(() => { if (timer) clearTimeout(timer); });
+
+
+// ============================================================================
+// [S3] 连接事件:写入 knownDeviceId,跳到 electrodes 步骤
+// ============================================================================
 
 function onConnect() {
   if (!found.value) return;
